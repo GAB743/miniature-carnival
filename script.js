@@ -192,7 +192,6 @@ function renderLedger() {
         let delBg = row.deliveryStatus === 'Delivered' ? "#d1fae5" : "white";
         let delCol = row.deliveryStatus === 'Delivered' ? "#047857" : "#d97706";
 
-        // EXPLICITLY LOOK FOR EXACT FORM HEADERS FOR SIZES
         let size = row["Size(T-shirt)"] || row["Size (T-shirt)"] || row["Sizes"] || row["Size"] || "";
         let displayItem = size ? `${row["Item"]} (${size})` : row["Item"];
 
@@ -368,7 +367,6 @@ window.openEmailModal = function(btnElement) {
     const payments = globalData.treasury.filter(t => t["Reference Number"] == ref);
     const amountPaid = payments.reduce((sum, p) => sum + Number(p["Amount Received"] || 0), 0);
     
-    // EXPLICITLY LOOK FOR EXACT FORM HEADERS FOR SIZES
     let size = orderData["Size(T-shirt)"] || orderData["Size (T-shirt)"] || orderData["Sizes"] || orderData["Size"] || "";
     let displayItem = size ? `${orderData["Item"]} (${size})` : orderData["Item"];
 
@@ -474,9 +472,9 @@ window.scanMissingEmails = function() {
         const ref = order["Reference Number"];
         const recipientInfo = `${order["Full Name"]} | ${order["Email Address"]}`;
 
-        // EXPLICITLY LOOK FOR EXACT FORM HEADERS FOR SIZES
         let size = order["Size(T-shirt)"] || order["Size (T-shirt)"] || order["Sizes"] || order["Size"] || "";
         let displayItem = size ? `${order["Item"]} (${size})` : order["Item"];
+        
         const orderInfo = `${ref} | ${displayItem}`;
 
         if (order.paymentStatus !== "Unpaid") {
@@ -566,9 +564,9 @@ window.updateDelivery = function(btnElement) {
     const orderData = globalData.formResponses.find(o => o["Reference Number"] == ref);
     const recipientInfo = orderData ? `${orderData["Full Name"]} | ${orderData["Email Address"]}` : `${name} | Unknown`;
     
-    // EXPLICITLY LOOK FOR EXACT FORM HEADERS FOR SIZES
     let size = orderData ? (orderData["Size(T-shirt)"] || orderData["Size (T-shirt)"] || orderData["Sizes"] || orderData["Size"] || "") : "";
     let displayItem = orderData ? (size ? `${orderData["Item"]} (${size})` : orderData["Item"]) : "Unknown";
+    
     const orderInfo = `${ref} | ${displayItem}`;
 
     secureFetch({ 
@@ -587,7 +585,6 @@ function renderForms() {
     tbody.innerHTML = '';
     globalData.formResponses.forEach(row => {
         
-        // EXPLICITLY LOOK FOR EXACT FORM HEADERS FOR SIZES
         let size = row["Size(T-shirt)"] || row["Size (T-shirt)"] || row["Sizes"] || row["Size"] || "";
         let displayItem = size ? `${row["Item"]} (${size})` : row["Item"];
         
@@ -689,9 +686,9 @@ window.submitPayment = function() {
     const orderData = globalData.formResponses.find(o => o["Reference Number"] == ref);
     const recipientInfo = orderData ? `${orderData["Full Name"]} | ${orderData["Email Address"]}` : "Unknown | Unknown";
     
-    // EXPLICITLY LOOK FOR EXACT FORM HEADERS FOR SIZES
     let size = orderData ? (orderData["Size(T-shirt)"] || orderData["Size (T-shirt)"] || orderData["Sizes"] || orderData["Size"] || "") : "";
     let displayItem = orderData ? (size ? `${orderData["Item"]} (${size})` : orderData["Item"]) : "Unknown";
+    
     const orderInfo = `${ref} | ${displayItem}`;
 
     const prevPayments = globalData.treasury.filter(t => t["Reference Number"] == ref).reduce((sum, p) => sum + Number(p["Amount Received"] || 0), 0);
@@ -739,7 +736,6 @@ window.syncDashboardToSheet = async function() {
         const delRecord = globalData.delivery.find(d => d["Reference Number"] == ref);
         const deliveryStatus = delRecord ? delRecord["Status"] : "Pending Delivery";
 
-        // EXPLICITLY LOOK FOR EXACT FORM HEADERS FOR SIZES
         let size = order["Size(T-shirt)"] || order["Size (T-shirt)"] || order["Sizes"] || order["Size"] || "";
         let displayItem = size ? `${order["Item"]} (${size})` : order["Item"];
 
