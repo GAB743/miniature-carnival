@@ -1,4 +1,4 @@
-const API_URL = "https://script.google.com/macros/s/AKfycbyculUoPSYk6eKPsFDavHC2POjbxgDz2bzXAhWsDCJflEltIeSnXoXiT2nKAMll2ZhlbA/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbxkVV9L30uUV2DIX7Mqj42iXB4RGX1BlhyHsR-c5ZueBj_QTZiYTmFFQb4Zn6CRz-0qYQ/exec";
 
 let globalData = { formResponses: [], catalogue: [], treasury: [], delivery: [], mailing: [], templates: [] };
 
