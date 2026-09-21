@@ -1,4 +1,4 @@
-const API_URL = "https://script.google.com/macros/s/AKfycbyculUoPSYk6eKPsFDavHC2POjbxgDz2bzXAhWsDCJflEltIeSnXoXiT2nKAMll2ZhlbA/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbzhBtz9ySLMdxbOwNW5sKBXvhzrU-h7OSz6t619C8Yic6D1JxBksk2euiqcPVjerplTwA/exec";
 
 let globalData = { formResponses: [], catalogue: [], treasury: [], delivery: [], mailing: [], templates: [] };
 
@@ -192,10 +192,14 @@ function renderLedger() {
         let delBg = row.deliveryStatus === 'Delivered' ? "#d1fae5" : "white";
         let delCol = row.deliveryStatus === 'Delivered' ? "#047857" : "#d97706";
 
+        // Extract size if it exists, format it in parentheses
+        let size = row["Sizes"] || row["Size"] || "";
+        let displayItem = size ? `${row["Item"]} (${size})` : row["Item"];
+
         tbody.innerHTML += `
             <tr>
                 <td><strong style="color:#111827;">${row["Full Name"] || '-'}</strong><br><span style="font-size:0.9em; color:#6b7280;">${row["Email Address"] || '-'}</span><br><span style="font-size:0.9em; color:#047857; font-weight:600;">${row["Organization/ School"] || '-'}</span></td>
-                <td><div style="background:#f3f4f6; padding:6px 10px; border-radius:6px; border:1px solid #e5e7eb; display:inline-block; font-size:0.95em;"><span style="color:#111827;">${row["Item"] || '-'} × ${row["Quanity"] || 0}</span><br><span style="color:#6b7280; font-size:0.9em;">@₱${row.price.toFixed(2)} each</span></div></td>
+                <td><div style="background:#f3f4f6; padding:6px 10px; border-radius:6px; border:1px solid #e5e7eb; display:inline-block; font-size:0.95em;"><span style="color:#111827;">${displayItem || '-'} × ${row["Quanity"] || 0}</span><br><span style="color:#6b7280; font-size:0.9em;">@₱${row.price.toFixed(2)} each</span></div></td>
                 <td style="font-weight:700;">${row["Reference Number"] || '-'}</td>
                 <td style="font-weight:600;">₱${row.amountDue.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
                 <td style="color:#047857; font-weight:700;">₱${row.amountPaid.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
@@ -206,7 +210,7 @@ function renderLedger() {
                     <button class="icon-btn" style="border:none; background:transparent;" onclick="openPaymentModal(this)" 
                         data-ref="${row["Reference Number"] || ''}" 
                         data-name="${(row["Full Name"] || '').replace(/"/g, '&quot;')}" 
-                        data-item="${(row["Item"] || '').replace(/"/g, '&quot;')}" 
+                        data-item="${(displayItem || '').replace(/"/g, '&quot;')}" 
                         data-balance="${row.balance}">
                         ${bankSvg}
                     </button>
@@ -364,9 +368,13 @@ window.openEmailModal = function(btnElement) {
     const payments = globalData.treasury.filter(t => t["Reference Number"] == ref);
     const amountPaid = payments.reduce((sum, p) => sum + Number(p["Amount Received"] || 0), 0);
     
+    // Add size formatting here
+    let size = orderData["Sizes"] || orderData["Size"] || "";
+    let displayItem = size ? `${orderData["Item"]} (${size})` : orderData["Item"];
+
     const contextData = {
         name: orderData["Full Name"],
-        item: orderData["Item"],
+        item: displayItem, // Uses the updated string with size
         qty: qty,
         amountDue: amountDue.toLocaleString('en-US', {minimumFractionDigits: 2}),
         amountPaid: amountPaid.toLocaleString('en-US', {minimumFractionDigits: 2}),
@@ -385,7 +393,7 @@ window.openEmailModal = function(btnElement) {
     currentEmailPayload.body = parseTemplate(rawBody, contextData);
     currentEmailPayload.to = orderData["Email Address"];
     currentEmailPayload.recipientInfo = `${orderData["Full Name"]} | ${orderData["Email Address"]}`;
-    currentEmailPayload.orderInfo = `${ref} | ${orderData["Item"]}`;
+    currentEmailPayload.orderInfo = `${ref} | ${displayItem}`; // Uses the updated string with size
     currentEmailPayload.condition = conditionName;
 
     document.getElementById('email-modal-name').textContent = contextData.name;
@@ -465,7 +473,11 @@ window.scanMissingEmails = function() {
     compiledLedger.forEach(order => {
         const ref = order["Reference Number"];
         const recipientInfo = `${order["Full Name"]} | ${order["Email Address"]}`;
-        const orderInfo = `${ref} | ${order["Item"]}`;
+
+        // Add size formatting here
+        let size = order["Sizes"] || order["Size"] || "";
+        let displayItem = size ? `${order["Item"]} (${size})` : order["Item"];
+        const orderInfo = `${ref} | ${displayItem}`;
 
         if (order.paymentStatus !== "Unpaid") {
             let cond = statusMap[order.paymentStatus];
@@ -553,7 +565,10 @@ window.updateDelivery = function(btnElement) {
     
     const orderData = globalData.formResponses.find(o => o["Reference Number"] == ref);
     const recipientInfo = orderData ? `${orderData["Full Name"]} | ${orderData["Email Address"]}` : `${name} | Unknown`;
-    const orderInfo = orderData ? `${ref} | ${orderData["Item"]}` : `${ref} | Unknown`;
+    
+    let size = orderData ? (orderData["Sizes"] || orderData["Size"] || "") : "";
+    let displayItem = orderData ? (size ? `${orderData["Item"]} (${size})` : orderData["Item"]) : "Unknown";
+    const orderInfo = `${ref} | ${displayItem}`;
 
     secureFetch({ 
         action: "update_delivery", 
@@ -570,12 +585,16 @@ function renderForms() {
     const tbody = document.getElementById('forms-body');
     tbody.innerHTML = '';
     globalData.formResponses.forEach(row => {
+        
+        let size = row["Sizes"] || row["Size"] || "";
+        let displayItem = size ? `${row["Item"]} (${size})` : row["Item"];
+        
         tbody.innerHTML += `<tr>
             <td>${new Date(row["Timestamp"]).toLocaleDateString()}</td>
             <td>${row["Email Address"]}</td>
             <td>${row["Full Name"]}</td>
             <td>${row["Organization/ School"]}</td>
-            <td>${row["Item"]}</td>
+            <td>${displayItem}</td>
             <td>${row["Quanity"]}</td>
             <td>${row["Reference Number"]}</td>
         </tr>`;
@@ -667,7 +686,10 @@ window.submitPayment = function() {
     
     const orderData = globalData.formResponses.find(o => o["Reference Number"] == ref);
     const recipientInfo = orderData ? `${orderData["Full Name"]} | ${orderData["Email Address"]}` : "Unknown | Unknown";
-    const orderInfo = orderData ? `${ref} | ${orderData["Item"]}` : `${ref} | Unknown`;
+    
+    let size = orderData ? (orderData["Sizes"] || orderData["Size"] || "") : "";
+    let displayItem = orderData ? (size ? `${orderData["Item"]} (${size})` : orderData["Item"]) : "Unknown";
+    const orderInfo = `${ref} | ${displayItem}`;
 
     const prevPayments = globalData.treasury.filter(t => t["Reference Number"] == ref).reduce((sum, p) => sum + Number(p["Amount Received"] || 0), 0);
     const qty = orderData ? Number(orderData["Quanity"]) : 0;
@@ -713,7 +735,12 @@ window.syncDashboardToSheet = async function() {
         if (amountPaid > 0 && balance < 0) paymentStatus = "Overpaid";
         const delRecord = globalData.delivery.find(d => d["Reference Number"] == ref);
         const deliveryStatus = delRecord ? delRecord["Status"] : "Pending Delivery";
-        return [ order["Full Name"] || "-", order["Organization/ School"] || "-", `${order["Item"]} x ${order["Quanity"]}`, ref, amountDue, amountPaid, paymentStatus, deliveryStatus ];
+
+        // Add size formatting here
+        let size = order["Sizes"] || order["Size"] || "";
+        let displayItem = size ? `${order["Item"]} (${size})` : order["Item"];
+
+        return [ order["Full Name"] || "-", order["Organization/ School"] || "-", `${displayItem} x ${order["Quanity"]}`, ref, amountDue, amountPaid, paymentStatus, deliveryStatus ];
     });
 
     try {
