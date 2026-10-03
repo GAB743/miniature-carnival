@@ -23,6 +23,8 @@
         .tab-btn { background: none; border: none; padding: 15px 10px; font-size: 0.9em; font-weight: 600; color: var(--text-muted); cursor: pointer; border-bottom: 3px solid transparent; white-space: nowrap; }
         .tab-btn.active { color: var(--primary-teal); border-bottom: 3px solid var(--primary-teal); }
         
+        .global-filter-bar { background: #eef2ff; border-bottom: 1px solid #c7d2fe; padding: 12px 25px; display: flex; align-items: center; gap: 15px; }
+
         .workspace { padding: 25px; max-width: 1400px; margin: auto; }
         .view-section { display: none; }
         .view-section.active { display: block; }
@@ -80,10 +82,7 @@
     <!-- SECURE LOGIN SCREEN -->
     <div id="login-screen" style="display: flex; height: 100vh; justify-content: center; align-items: center; background: var(--bg-gray);">
         <div class="card" style="text-align: center; max-width: 400px; width: 100%; box-shadow: 0 10px 25px rgba(0,0,0,0.1);">
-            
-            <!-- INCREASED LOGO SIZE ON LOGIN SCREEN -->
             <img src="logo.png" alt="PIChE-JCL Logo" style="height: 120px; width: auto; margin: 0 auto 15px auto; display: block; object-fit: contain;">
-            
             <h2 style="color: var(--text-dark); margin-top: 0;">PIChE-JCL Secure Access</h2>
             <p style="font-size: 0.9em; color: var(--text-muted); margin-bottom: 25px;">Enter the officer PIN to access the Order Tracker & Ledger.</p>
             <input type="password" id="officer-pin" class="form-control" placeholder="Enter PIN" style="margin-bottom: 15px; text-align: center; font-size: 1.2em; letter-spacing: 2px;">
@@ -96,9 +95,7 @@
         
         <header class="app-header">
             <div style="display: flex; align-items: center; gap: 15px;">
-                <!-- INCREASED LOGO SIZE ON APP HEADER -->
                 <img src="logo.png" alt="PIChE-JCL Logo" style="height: 50px; width: auto; object-fit: contain;">
-                
                 <h1>PIChE-JCL Merch Order Tracker <span class="badges">5-Tab Architecture</span></h1>
             </div>
             <div style="display: flex; gap: 10px;">
@@ -135,6 +132,15 @@
             <button class="tab-btn" onclick="switchTab('tab-delivery', this)">Tab 4: Delivery Validation</button>
             <button class="tab-btn" onclick="switchTab('tab-forms', this)">Tab 5: Form Responses 1</button>
         </nav>
+
+        <!-- GLOBAL CHAPTER FILTER APPLIED TO ALL TABS -->
+        <div class="global-filter-bar">
+            <strong style="color: var(--indigo-dark); font-size: 0.9em; letter-spacing: 0.05em; text-transform: uppercase;">Global Chapter Filter:</strong>
+            <select id="global-chapter-filter" class="form-control" style="max-width: 250px;" onchange="applyGlobalChapterFilter()">
+                <option value="all">All Chapters</option>
+            </select>
+            <span style="font-size: 0.85em; color: var(--text-muted);">This filter dynamically updates data across all 5 tabs.</span>
+        </div>
 
         <main class="workspace">
             
@@ -212,7 +218,7 @@
                         <table>
                             <thead>
                                 <tr>
-                                    <th>Buyer & Organization</th>
+                                    <th>Buyer, Chapter & Org</th>
                                     <th>Item & Qty</th>
                                     <th>Reference No.</th>
                                     <th>Amount Due</th>
@@ -251,6 +257,7 @@
                             <thead>
                                 <tr>
                                     <th>Reference Number (Key)</th>
+                                    <th>Buyer, Chapter & Org</th>
                                     <th>Amount Received</th>
                                     <th>Payment Channel</th>
                                     <th>Verification Info</th>
@@ -328,7 +335,7 @@
                         <table>
                             <thead>
                                 <tr>
-                                    <th>Recipient & Organization</th>
+                                    <th>Recipient, Chapter & Org</th>
                                     <th>Order Ref & Item</th>
                                     <th>Status Transition</th>
                                     <th>Subject Preview</th>
@@ -358,7 +365,7 @@
                                 <tr>
                                     <th>Reference Number</th>
                                     <th>Buyer Name</th>
-                                    <th>Organization / School</th>
+                                    <th>Chapter & Org</th>
                                     <th>Delivery Status</th>
                                     <th>Action</th>
                                 </tr>
@@ -375,7 +382,7 @@
                     <p style="font-size:0.85em; color:var(--text-muted);">Direct feed from the Google Form intake. This data is strictly immutable through this dashboard.</p>
                     <div style="overflow-x: auto;">
                         <table>
-                            <thead><tr><th>Timestamp</th><th>Email Address</th><th>Full Name</th><th>Organization / School</th><th>Item</th><th>Quanity</th><th>Reference Number</th></tr></thead>
+                            <thead><tr><th>Timestamp</th><th>Email Address</th><th>Full Name</th><th>Chapter & Org</th><th>Item</th><th>Quantity</th><th>Reference Number</th></tr></thead>
                             <tbody id="forms-body"></tbody>
                         </table>
                     </div>
