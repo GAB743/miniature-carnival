@@ -1,4 +1,4 @@
-const API_URL = "https://script.google.com/macros/s/AKfycbxkVV9L30uUV2DIX7Mqj42iXB4RGX1BlhyHsR-c5ZueBj_QTZiYTmFFQb4Zn6CRz-0qYQ/exec";
+const API_URL = "https://script.google.com/macros/s/AKfycbx1jVN3CiVOlWqOGT82AOpdkvcdVTNIweGGRy6wT_2bqDz0wbuzJW24JtYtWYaWAWN8JA/exec";
 
 let globalData = { formResponses: [], catalogue: [], treasury: [], delivery: [], mailing: [], templates: [] };
 
@@ -21,7 +21,6 @@ let activeConditionId = "paid";
 window.verifyPin = function() {
     const pin = document.getElementById('officer-pin').value;
     if (!pin) return;
-    
     sessionStorage.setItem('officerPin', pin);
     initApp();
 }
@@ -44,7 +43,6 @@ function initApp() {
     }
 }
 
-// Wrapper for all fetch calls to inject PIN automatically and handle errors
 async function secureFetch(payloadObj) {
     payloadObj.pin = sessionStorage.getItem('officerPin');
     const res = await fetch(API_URL, {
@@ -78,13 +76,12 @@ async function loadGoogleSheetData() {
         document.getElementById('tab1-badge').textContent = globalData.formResponses.length;
         
         populateFilters();
-        renderLedger();
-        renderTreasury();
-        renderDelivery();
-        renderForms();
+        
+        // Initial Table Render
+        window.applyGlobalChapterFilter();
+        
         renderCatalogGrid();
         initTemplateEditor();
-        renderMailLog();
     } catch (error) { console.error("Error loading data:", error); }
 }
 
@@ -96,6 +93,14 @@ window.switchTab = function(tabId, btnElement) {
 };
 
 function populateFilters() {
+    // Populate the new Global Chapter Filter
+    const uniqueChapters = [...new Set(globalData.formResponses.map(o => o["Chapter"]))].filter(Boolean);
+    const chapterSelect = document.getElementById('global-chapter-filter');
+    chapterSelect.innerHTML = '<option value="all">All Chapters</option>';
+    uniqueChapters.forEach(chap => {
+        chapterSelect.innerHTML += `<option value="${chap}">${chap}</option>`;
+    });
+
     const orgSelect = document.getElementById('filter-org');
     const itemSelect = document.getElementById('filter-item');
     const delOrgSelect = document.getElementById('filter-delivery-org');
@@ -117,10 +122,21 @@ function populateFilters() {
     });
 }
 
+// ================= GLOBAL CHAPTER FILTER TRIGGER ================= //
+window.applyGlobalChapterFilter = function() {
+    renderLedger();
+    renderTreasury();
+    renderDelivery();
+    renderForms();
+    renderMailLog();
+}
+
 // ================= TAB 1: LEDGER ================= //
 function renderLedger() {
     const tbody = document.getElementById('ledger-body');
     tbody.innerHTML = '';
+    
+    const globalChapterFilter = document.getElementById('global-chapter-filter').value;
     
     const filterStatus = document.getElementById('filter-status').value;
     const filterOrg = document.getElementById('filter-org').value;
@@ -148,14 +164,28 @@ function renderLedger() {
         const delRecord = globalData.delivery.find(d => d["Reference Number"] == ref);
         const deliveryStatus = delRecord ? delRecord["Status"] : "Pending Delivery";
 
-        statBilled += amountDue;
-        statCollected += amountPaid;
-        statBalance += Math.max(0, balance);
-        if (paymentStatus === 'Paid' || paymentStatus === 'Overpaid') cntPaid++; else cntUnpaid++;
-        if (deliveryStatus === 'Delivered') cntDelivered++; else cntTransit++;
-
         return { ...order, amountDue, amountPaid, balance, paymentStatus, deliveryStatus, price };
     });
+
+    compiledLedger = compiledLedger.filter(item => {
+        // Appling Global Chapter Filter first
+        const matchesChapter = globalChapterFilter === 'all' || item["Chapter"] === globalChapterFilter;
+        
+        const matchesStatus = filterStatus === 'all' || item.paymentStatus === filterStatus;
+        const matchesOrg = filterOrg === 'all' || item["Organization/ School"] === filterOrg;
+        const matchesItem = filterItem === 'all' || item["Item"] === filterItem;
+        const searchTarget = `${item["Full Name"]} ${item["Email Address"]} ${item["Reference Number"]}`.toLowerCase();
+        
+        return matchesChapter && matchesStatus && matchesOrg && matchesItem && searchTarget.includes(searchQuery);
+    });
+
+    compiledLedger.forEach(item => {
+        statBilled += item.amountDue;
+        statCollected += item.amountPaid;
+        statBalance += Math.max(0, item.balance);
+        if (item.paymentStatus === 'Paid' || item.paymentStatus === 'Overpaid') cntPaid++; else cntUnpaid++;
+        if (item.deliveryStatus === 'Delivered') cntDelivered++; else cntTransit++;
+    })
 
     document.getElementById('stat-billed').textContent = `₱${statBilled.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
     document.getElementById('stat-orders').textContent = compiledLedger.length;
@@ -165,15 +195,6 @@ function renderLedger() {
     document.getElementById('cnt-unpaid').textContent = cntUnpaid;
     document.getElementById('cnt-transit').textContent = cntTransit;
     document.getElementById('cnt-delivered').textContent = cntDelivered;
-
-    compiledLedger = compiledLedger.filter(item => {
-        const matchesStatus = filterStatus === 'all' || item.paymentStatus === filterStatus;
-        const matchesOrg = filterOrg === 'all' || item["Organization/ School"] === filterOrg;
-        const matchesItem = filterItem === 'all' || item["Item"] === filterItem;
-        const searchTarget = `${item["Full Name"]} ${item["Email Address"]} ${item["Reference Number"]}`.toLowerCase();
-        
-        return matchesStatus && matchesOrg && matchesItem && searchTarget.includes(searchQuery);
-    });
 
     document.getElementById('record-count').textContent = `Showing ${compiledLedger.length} of ${globalData.formResponses.length} records`;
 
@@ -197,7 +218,11 @@ function renderLedger() {
 
         tbody.innerHTML += `
             <tr>
-                <td><strong style="color:#111827;">${row["Full Name"] || '-'}</strong><br><span style="font-size:0.9em; color:#6b7280;">${row["Email Address"] || '-'}</span><br><span style="font-size:0.9em; color:#047857; font-weight:600;">${row["Organization/ School"] || '-'}</span></td>
+                <td>
+                    <strong style="color:#111827;">${row["Full Name"] || '-'}</strong><br>
+                    <span style="font-size:0.9em; color:#6b7280;">${row["Email Address"] || '-'}</span><br>
+                    <span style="font-size:0.9em; color:#047857;"><strong>${row["Chapter"] || 'N/A'}</strong><br>${row["Organization/ School"] || '-'}</span>
+                </td>
                 <td><div style="background:#f3f4f6; padding:6px 10px; border-radius:6px; border:1px solid #e5e7eb; display:inline-block; font-size:0.95em;"><span style="color:#111827;">${displayItem || '-'} × ${row["Quanity"] || 0}</span><br><span style="color:#6b7280; font-size:0.9em;">@₱${row.price.toFixed(2)} each</span></div></td>
                 <td style="font-weight:700;">${row["Reference Number"] || '-'}</td>
                 <td style="font-weight:600;">₱${row.amountDue.toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
@@ -222,16 +247,32 @@ function renderLedger() {
 function renderTreasury() {
     const tbody = document.getElementById('treasury-body');
     tbody.innerHTML = '';
-    document.getElementById('treasury-count').textContent = globalData.treasury.length;
+    const globalChapterFilter = document.getElementById('global-chapter-filter').value;
+    
+    // Apply Chapter Filter to Treasury by looking up matched Form Records
+    let filteredTreasury = globalData.treasury.filter(row => {
+        let matchedOrder = globalData.formResponses.find(f => f["Reference Number"] == row["Reference Number"]);
+        let chapter = matchedOrder ? matchedOrder["Chapter"] : "N/A";
+        return globalChapterFilter === 'all' || chapter === globalChapterFilter;
+    });
 
-    if (globalData.treasury.length === 0) { tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;">No payments logged.</td></tr>`; return; }
+    document.getElementById('treasury-count').textContent = filteredTreasury.length;
 
-    globalData.treasury.forEach(row => {
-        let isMatched = globalData.formResponses.some(f => f["Reference Number"] == row["Reference Number"]);
-        let matchPill = isMatched ? `<span style="color:#047857; background:#d1fae5; padding:4px 10px; border-radius:12px; font-size:0.85em; font-weight:600;">Matched</span>` : `<span style="color:#be123c; background:#ffe4e6; padding:4px 10px; border-radius:12px; font-size:0.85em; font-weight:600;">Unmatched</span>`;
+    if (filteredTreasury.length === 0) { tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;">No matching payments logged.</td></tr>`; return; }
+
+    filteredTreasury.forEach(row => {
+        let matchedOrder = globalData.formResponses.find(f => f["Reference Number"] == row["Reference Number"]);
+        
+        let matchPill = matchedOrder ? `<span style="color:#047857; background:#d1fae5; padding:4px 10px; border-radius:12px; font-size:0.85em; font-weight:600;">Matched</span>` : `<span style="color:#be123c; background:#ffe4e6; padding:4px 10px; border-radius:12px; font-size:0.85em; font-weight:600;">Unmatched</span>`;
+        
+        let buyerInfo = matchedOrder 
+            ? `<strong style="color:#111827;">${matchedOrder["Full Name"]}</strong><br><span style="font-size:0.85em; color:var(--text-muted);"><strong>${matchedOrder["Chapter"] || 'N/A'}</strong><br>${matchedOrder["Organization/ School"] || '-'}</span>`
+            : `<span style="color:#6b7280;">Unknown (Not in Ledger)</span>`;
+
         tbody.innerHTML += `
             <tr>
                 <td><strong style="color:#111827;">${row["Reference Number"] || '-'}</strong></td>
+                <td>${buyerInfo}</td>
                 <td style="color:#047857; font-weight:700;">₱${Number(row["Amount Received"] || 0).toLocaleString('en-US', {minimumFractionDigits: 2})}</td>
                 <td>${row["Payment Channel"] || '-'}</td>
                 <td style="color:#6b7280;">${row["Verification Info"] || '-'}</td>
@@ -312,11 +353,18 @@ function renderMailLog() {
     tbody.innerHTML = '';
     const query = document.getElementById('search-mail').value.toLowerCase();
     const statusFilter = document.getElementById('filter-mail-status').value;
+    const globalChapterFilter = document.getElementById('global-chapter-filter').value;
 
     let filtered = globalData.mailing.filter(m => {
+        let rawRef = (m["Order Ref & Item"]||'').split('|')[0].trim();
+        let parentOrder = globalData.formResponses.find(o => o["Reference Number"] == rawRef) || {};
+        let chapter = parentOrder["Chapter"] || "N/A";
+        
+        const matchesChapter = globalChapterFilter === 'all' || chapter === globalChapterFilter;
         const textMatch = `${m["Recipient & Organization"]} ${m["Order Ref & Item"]}`.toLowerCase().includes(query);
         const statusMatch = statusFilter === 'all' || m["Dispatch Status"] === statusFilter;
-        return textMatch && statusMatch;
+        
+        return matchesChapter && textMatch && statusMatch;
     });
 
     document.getElementById('mail-count-total').textContent = filtered.length;
@@ -327,12 +375,19 @@ function renderMailLog() {
         let statusBg = row["Dispatch Status"] === "Sent" ? "#d1fae5" : "#fef3c7";
         
         let rawRef = (row["Order Ref & Item"]||'').split('|')[0].trim();
+        let parentOrder = globalData.formResponses.find(o => o["Reference Number"] == rawRef) || {};
+        let chapter = parentOrder["Chapter"] || "N/A";
+        let org = parentOrder["Organization/ School"] || "Unknown";
+
         let recipientName = (row["Recipient & Organization"]||'').split('|')[0].trim();
         let conditionName = row["Status Transition"];
 
         tbody.innerHTML += `
             <tr>
-                <td><strong>${recipientName}</strong><br><span style="font-size:0.85em; color:var(--text-muted);">${(row["Recipient & Organization"]||'').split('|')[1] || ''}</span></td>
+                <td>
+                    <strong>${recipientName}</strong><br>
+                    <span style="font-size:0.85em; color:var(--text-muted);"><strong>${chapter}</strong><br>${org}</span>
+                </td>
                 <td><strong>${rawRef}</strong><br><span style="font-size:0.85em; color:var(--text-muted);">${(row["Order Ref & Item"]||'').split('|')[1] || ''}</span></td>
                 <td><span style="background:#e0e7ff; color:var(--indigo-primary); padding:4px 8px; border-radius:4px; font-size:0.85em; font-weight:600;">${conditionName}</span></td>
                 <td style="font-size:0.9em; max-width:200px; overflow:hidden; text-overflow:ellipsis;">${row["Subject Preview"]}</td>
@@ -372,7 +427,7 @@ window.openEmailModal = function(btnElement) {
 
     const contextData = {
         name: orderData["Full Name"],
-        item: displayItem, // Uses the updated string with size
+        item: displayItem, 
         qty: qty,
         amountDue: amountDue.toLocaleString('en-US', {minimumFractionDigits: 2}),
         amountPaid: amountPaid.toLocaleString('en-US', {minimumFractionDigits: 2}),
@@ -521,13 +576,16 @@ window.scanMissingEmails = function() {
 function renderDelivery() {
     const tbody = document.getElementById('delivery-body');
     tbody.innerHTML = '';
+    
+    const globalChapterFilter = document.getElementById('global-chapter-filter').value;
     const query = document.getElementById('search-delivery').value.toLowerCase();
     const filterOrg = document.getElementById('filter-delivery-org').value;
 
     let filtered = globalData.formResponses.filter(item => {
+        const matchesChapter = globalChapterFilter === 'all' || item["Chapter"] === globalChapterFilter;
         const matchesOrg = filterOrg === 'all' || item["Organization/ School"] === filterOrg;
         const searchTarget = `${item["Full Name"]} ${item["Reference Number"]}`.toLowerCase();
-        return matchesOrg && searchTarget.includes(query);
+        return matchesChapter && matchesOrg && searchTarget.includes(query);
     });
 
     if (filtered.length === 0) { tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;">No records found.</td></tr>`; return; }
@@ -544,7 +602,10 @@ function renderDelivery() {
             <tr>
                 <td><strong>${ref || '-'}</strong></td>
                 <td>${row["Full Name"] || '-'}</td>
-                <td>${row["Organization/ School"] || '-'}</td>
+                <td>
+                    <strong>${row["Chapter"] || 'N/A'}</strong><br>
+                    <span style="font-size:0.85em; color:var(--text-muted);">${row["Organization/ School"] || '-'}</span>
+                </td>
                 <td><span class="pill" style="background:${delBg}; color:${delCol}; border-color:#f59e0b;">${currentStatus}</span></td>
                 <td>
                     ${currentStatus !== 'Delivered' ? 
@@ -583,8 +644,13 @@ window.updateDelivery = function(btnElement) {
 function renderForms() {
     const tbody = document.getElementById('forms-body');
     tbody.innerHTML = '';
-    globalData.formResponses.forEach(row => {
-        
+    const globalChapterFilter = document.getElementById('global-chapter-filter').value;
+    
+    let filtered = globalData.formResponses.filter(r => globalChapterFilter === 'all' || r["Chapter"] === globalChapterFilter);
+
+    if (filtered.length === 0) { tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;">No records found.</td></tr>`; return; }
+
+    filtered.forEach(row => {
         let size = row["Size(T-shirt)"] || row["Size (T-shirt)"] || row["Sizes"] || row["Size"] || "";
         let displayItem = size ? `${row["Item"]} (${size})` : row["Item"];
         
@@ -592,7 +658,10 @@ function renderForms() {
             <td>${new Date(row["Timestamp"]).toLocaleDateString()}</td>
             <td>${row["Email Address"]}</td>
             <td>${row["Full Name"]}</td>
-            <td>${row["Organization/ School"]}</td>
+            <td>
+                <strong>${row["Chapter"] || 'N/A'}</strong><br>
+                ${row["Organization/ School"] || '-'}
+            </td>
             <td>${displayItem}</td>
             <td>${row["Quanity"]}</td>
             <td>${row["Reference Number"]}</td>
@@ -747,7 +816,6 @@ window.syncDashboardToSheet = async function() {
         await loadGoogleSheetData(); 
         alert("Dashboard Synced and App Refreshed!");
     } catch (err) {
-        // secureFetch handles the alert
     } finally {
         btn.textContent = "Sync Ledger & Refresh App";
         btn.disabled = false;
